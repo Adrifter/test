@@ -1,0 +1,759 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>图片字幕生成器</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <style>
+    :root {
+      --bg: #f7f7f7;
+      --fg: #222;
+      --primary: #2ecc71;
+      --border: #ddd;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+    }
+    h1 {
+      font-size: 20px;
+      margin: 0 0 16px;
+    }
+    .banner {
+      height: 200px;
+      border-radius: 12px;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #eaf3ff;
+    }
+    .banner-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.25);
+      z-index: 1;
+    }
+    .banner-overlay {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at center, rgba(0,0,0,0) 0%, rgba(0,0,0,0.15) 60%, rgba(0,0,0,0.35) 100%);
+    }
+    .panel {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .row label {
+      font-size: 13px;
+      color: #555;
+    }
+    input[type="number"] {
+      width: 120px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+    }
+    select {
+      width: 140px;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: #fff;
+    }
+    .checkbox {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    input[type="color"] {
+      width: 48px;
+      height: 32px;
+      padding: 0;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: transparent;
+    }
+    input[type="file"] {
+      padding: 6px 0;
+    }
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      resize: vertical;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      appearance: none;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    .primary {
+      background: var(--primary);
+      color: #fff;
+    }
+    .secondary {
+      background: #eee;
+      color: #333;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .preview {
+      width: 100%;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      background: #fafafa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 180px;
+      overflow: hidden;
+    }
+    .preview img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+    .placeholder {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #999;
+      font-size: 13px;
+      padding: 24px;
+      text-align: center;
+    }
+    .swatches {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+    }
+    .swatch.selected {
+      outline: 2px solid #333;
+      outline-offset: 2px;
+    }
+    .popover {
+      position: relative;
+      display: inline-block;
+    }
+    .popover-panel {
+      position: absolute;
+      top: 36px;
+      left: 0;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      display: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.08);
+      z-index: 10;
+      min-width: 220px;
+    }
+    .popover-panel.open {
+      display: block;
+    }
+    .popover-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .palette {
+      display: grid;
+      grid-template-columns: repeat(12, 22px);
+      gap: 6px;
+      margin-top: 6px;
+    }
+    .palette .swatch {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+    }
+    .colorpicker {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      margin-top: 8px;
+    }
+    .cp-sv {
+      width: 180px;
+      height: 120px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: crosshair;
+    }
+    .cp-hue {
+      width: 16px;
+      height: 120px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: ns-resize;
+    }
+    .cp-controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .cp-preview {
+      width: 24px;
+      height: 24px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+    }
+    .hint {
+      font-size: 12px;
+      color: #777;
+    }
+  </style>
+</head>
+<body>
+  <div id="banner" class="banner">
+    <div class="banner-title">图片字幕生成器</div>
+    <div class="banner-overlay"></div>
+  </div>
+
+  <div class="panel">
+    <div class="row">
+      <label>选择文件：</label>
+      <input id="fileInput" type="file" accept="image/*">
+    </div>
+    <div class="row">
+      <label>字幕高度(px)：</label>
+      <input id="subtitleHeight" type="number" min="16" max="200" value="40">
+      <label>字体大小(px)：</label>
+      <input id="fontSize" type="number" min="10" max="120" value="20">
+      <label>字体样式：</label>
+      <select id="fontFamily">
+        <option value="sans-serif">无衬线</option>
+        <option value="serif">衬线</option>
+        <option value="monospace">等宽</option>
+        <option value="cursive">手写</option>
+        <option value="system-ui">系统</option>
+      </select>
+      <label>字重：</label>
+      <select id="fontWeight">
+        <option value="400">400</option>
+        <option value="600">600</option>
+        <option value="700" selected>700</option>
+        <option value="800">800</option>
+      </select>
+      <span class="checkbox">
+        <input id="fontItalic" type="checkbox">
+        <label for="fontItalic">斜体</label>
+      </span>
+    </div>
+    <div class="row">
+      <label>字体颜色：</label>
+      <div class="swatches" id="fontSwatches">
+        <div class="swatch" data-color="#ffffff" style="background:#ffffff"></div>
+        <div class="swatch" data-color="#000000" style="background:#000000"></div>
+        <div class="swatch" data-color="#ffeb3b" style="background:#ffeb3b"></div>
+        <div class="swatch" data-color="#ff5722" style="background:#ff5722"></div>
+        <div class="swatch" data-color="#00bcd4" style="background:#00bcd4"></div>
+        <div class="swatch" data-color="#8bc34a" style="background:#8bc34a"></div>
+      </div>
+      <div class="popover">
+        <button id="fontMore" class="secondary">更多</button>
+        <div class="popover-panel" id="fontPopover">
+          <div class="palette" id="fontPalette"></div>
+          <div class="colorpicker">
+            <canvas id="fontSV" class="cp-sv"></canvas>
+            <canvas id="fontHue" class="cp-hue"></canvas>
+          </div>
+          <div class="cp-controls">
+            <div id="fontPreview" class="cp-preview"></div>
+            <input id="fontHex" type="text" placeholder="#ffffff" value="#ffffff" style="width:110px;padding:6px;border:1px solid var(--border);border-radius:6px;">
+            <button id="fontClose" class="secondary">关闭</button>
+          </div>
+          <input id="fontColor" type="color" value="#ffffff" style="margin-top:8px; display:none;">
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <label>轮廓颜色：</label>
+      <div class="swatches" id="outlineSwatches">
+        <div class="swatch" data-color="#000000" style="background:#000000"></div>
+        <div class="swatch" data-color="#ffffff" style="background:#ffffff"></div>
+        <div class="swatch" data-color="#ffeb3b" style="background:#ffeb3b"></div>
+        <div class="swatch" data-color="#ff5722" style="background:#ff5722"></div>
+        <div class="swatch" data-color="#00bcd4" style="background:#00bcd4"></div>
+        <div class="swatch" data-color="#8bc34a" style="background:#8bc34a"></div>
+      </div>
+      <div class="popover">
+        <button id="outlineMore" class="secondary">更多</button>
+        <div class="popover-panel" id="outlinePopover">
+          <div class="palette" id="outlinePalette"></div>
+          <div class="colorpicker">
+            <canvas id="outlineSV" class="cp-sv"></canvas>
+            <canvas id="outlineHue" class="cp-hue"></canvas>
+          </div>
+          <div class="cp-controls">
+            <div id="outlinePreview" class="cp-preview"></div>
+            <input id="outlineHex" type="text" placeholder="#000000" value="#000000" style="width:110px;padding:6px;border:1px solid var(--border);border-radius:6px;">
+            <button id="outlineClose" class="secondary">关闭</button>
+          </div>
+          <input id="outlineColor" type="color" value="#000000" style="margin-top:8px; display:none;">
+        </div>
+      </div>
+    </div>
+    <div class="row">
+      <div class="hint">每一行文字将生成一条独立字幕，背景相同并垂直堆叠。</div>
+    </div>
+    <textarea id="textInput" placeholder="在这里输入多行字幕，每行一条"></textarea>
+    <div class="actions" style="margin-top:12px;">
+      <button id="generateBtn" class="primary">生成字幕图片</button>
+      <button id="saveBtn" class="secondary">保存图片</button>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="row"><strong>图片预览</strong></div>
+      <div class="preview">
+        <div id="originalPlaceholder" class="placeholder">未选择图片</div>
+        <img id="originalPreview" alt="尚未选择图片" style="display:none">
+      </div>
+    </div>
+    <div class="panel">
+      <div class="row"><strong>结果预览</strong></div>
+      <div class="preview">
+        <div id="resultPlaceholder" class="placeholder">尚未生成结果</div>
+        <img id="resultPreview" alt="尚未生成结果" style="display:none">
+      </div>
+    </div>
+  </div>
+
+  <canvas id="workCanvas" style="display:none;"></canvas>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const subtitleHeightInput = document.getElementById('subtitleHeight');
+    const fontSizeInput = document.getElementById('fontSize');
+    const fontColorInput = document.getElementById('fontColor');
+    const outlineColorInput = document.getElementById('outlineColor');
+    const fontFamilySelect = document.getElementById('fontFamily');
+    const fontWeightSelect = document.getElementById('fontWeight');
+    const fontItalicCheckbox = document.getElementById('fontItalic');
+    const textInput = document.getElementById('textInput');
+    const generateBtn = document.getElementById('generateBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const originalPreview = document.getElementById('originalPreview');
+    const resultPreview = document.getElementById('resultPreview');
+    const originalPlaceholder = document.getElementById('originalPlaceholder');
+    const resultPlaceholder = document.getElementById('resultPlaceholder');
+    const fontSwatches = document.getElementById('fontSwatches');
+    const outlineSwatches = document.getElementById('outlineSwatches');
+    const fontMore = document.getElementById('fontMore');
+    const outlineMore = document.getElementById('outlineMore');
+    const fontPopover = document.getElementById('fontPopover');
+    const outlinePopover = document.getElementById('outlinePopover');
+    const fontClose = document.getElementById('fontClose');
+    const outlineClose = document.getElementById('outlineClose');
+    const workCanvas = document.getElementById('workCanvas');
+    const ctx = workCanvas.getContext('2d');
+    const banner = document.getElementById('banner');
+    const fontPalette = document.getElementById('fontPalette');
+    const outlinePalette = document.getElementById('outlinePalette');
+    const fontSV = document.getElementById('fontSV');
+    const fontHue = document.getElementById('fontHue');
+    const outlineSV = document.getElementById('outlineSV');
+    const outlineHue = document.getElementById('outlineHue');
+    const fontHex = document.getElementById('fontHex');
+    const outlineHex = document.getElementById('outlineHex');
+    const fontPreview = document.getElementById('fontPreview');
+    const outlinePreview = document.getElementById('outlinePreview');
+
+    let originalImage = null;
+
+    function loadImageFromFile(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
+
+    function getLines() {
+      return textInput.value
+        .split('\n')
+        .map(s => s.trim())
+        .filter(s => s.length > 0);
+    }
+
+    function setFont(ctx, size, family, weight, italic) {
+      const italicPart = italic ? 'italic ' : '';
+      ctx.font = `${italicPart}${weight} ${size}px ${family}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+    }
+
+    function fitFontSize(ctx, text, targetWidth, baseSize, family, weight, italic) {
+      setFont(ctx, baseSize, family, weight, italic);
+      const w = ctx.measureText(text).width;
+      if (w <= targetWidth) return baseSize;
+      const scale = targetWidth / Math.max(1, w);
+      return Math.max(10, Math.floor(baseSize * scale));
+    }
+
+    function drawOutlinedText(ctx, text, x, y, size, fill, stroke, family, weight, italic, align) {
+      setFont(ctx, size, family, weight, italic);
+      ctx.textAlign = align || 'center';
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = stroke;
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = Math.max(2, Math.floor(size * 0.08));
+      ctx.strokeText(text, x, y);
+      ctx.fillText(text, x, y);
+    }
+
+    async function generate() {
+      if (!originalImage) {
+        alert('请先选择图片');
+        return;
+      }
+      const lines = getLines();
+      if (lines.length === 0) {
+        alert('请输入至少一行字幕');
+        return;
+      }
+      const h = parseInt(subtitleHeightInput.value || '40', 10);
+      const baseFont = parseInt(fontSizeInput.value || '20', 10);
+      const fill = fontColorInput.value || '#ffffff';
+      const stroke = outlineColorInput.value || '#000000';
+      const family = fontFamilySelect.value || 'sans-serif';
+      const weight = fontWeightSelect.value || '700';
+      const italic = !!fontItalicCheckbox.checked;
+
+      const ow = originalImage.naturalWidth || originalImage.width;
+      const oh = originalImage.naturalHeight || originalImage.height;
+
+      workCanvas.width = ow;
+      workCanvas.height = oh + lines.length * h;
+
+      ctx.drawImage(originalImage, 0, 0, ow, oh);
+
+      const sy = Math.max(0, oh - h);
+      for (let i = 0; i < lines.length; i++) {
+        const dy = oh + i * h;
+        ctx.drawImage(originalImage, 0, sy, ow, h, 0, dy, ow, h);
+        const maxTextWidth = ow - 24;
+        const fs = fitFontSize(ctx, lines[i], maxTextWidth, baseFont, family, weight, italic);
+        drawOutlinedText(ctx, lines[i], Math.floor(ow / 2), Math.floor(dy + h / 2), fs, fill, stroke, family, weight, italic, 'center');
+      }
+
+      const wmSize = Math.max(12, Math.floor(baseFont * 0.8));
+      const wmFill = 'rgba(255,255,255,0.85)';
+      const wmStroke = 'rgba(0,0,0,0.6)';
+      drawOutlinedText(ctx, 'haoxiang', ow - 12, 12 + wmSize / 2, wmSize, wmFill, wmStroke, family, weight, italic, 'right');
+
+      const url = workCanvas.toDataURL('image/png');
+      resultPreview.src = url;
+      resultPreview.style.display = 'block';
+      resultPlaceholder.style.display = 'none';
+      return url;
+    }
+
+    function download(url) {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'subtitle_image.png';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      try {
+        const img = await loadImageFromFile(file);
+        originalImage = img;
+        originalPreview.src = img.src;
+        originalPreview.style.display = 'block';
+        originalPlaceholder.style.display = 'none';
+      } catch (err) {
+        alert('图片加载失败');
+      }
+    });
+
+    generateBtn.addEventListener('click', async () => {
+      await generate();
+    });
+
+    saveBtn.addEventListener('click', async () => {
+      const url = await generate();
+      if (url) download(url);
+    });
+
+    function selectSwatch(container, color, input) {
+      Array.from(container.querySelectorAll('.swatch')).forEach(el => {
+        el.classList.toggle('selected', el.getAttribute('data-color') === color);
+      });
+      input.value = color;
+    }
+
+    fontSwatches.addEventListener('click', (e) => {
+      const target = e.target.closest('.swatch');
+      if (!target) return;
+      const color = target.getAttribute('data-color');
+      selectSwatch(fontSwatches, color, fontColorInput);
+    });
+
+    outlineSwatches.addEventListener('click', (e) => {
+      const target = e.target.closest('.swatch');
+      if (!target) return;
+      const color = target.getAttribute('data-color');
+      selectSwatch(outlineSwatches, color, outlineColorInput);
+    });
+
+    fontMore.addEventListener('click', () => {
+      fontPopover.classList.add('open');
+    });
+    outlineMore.addEventListener('click', () => {
+      outlinePopover.classList.add('open');
+    });
+    fontClose.addEventListener('click', () => {
+      fontPopover.classList.remove('open');
+    });
+    outlineClose.addEventListener('click', () => {
+      outlinePopover.classList.remove('open');
+    });
+
+    function hex(v) {
+      const s = v.toString(16).padStart(2, '0');
+      return s;
+    }
+    function hslToHex(h, s, l) {
+      s /= 100;
+      l /= 100;
+      const c = (1 - Math.abs(2 * l - 1)) * s;
+      const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      const m = l - c / 2;
+      let r = 0, g = 0, b = 0;
+      if (0 <= h && h < 60) { r = c; g = x; b = 0; }
+      else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
+      else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
+      else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
+      else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
+      else { r = c; g = 0; b = x; }
+      r = Math.round((r + m) * 255);
+      g = Math.round((g + m) * 255);
+      b = Math.round((b + m) * 255);
+      return `#${hex(r)}${hex(g)}${hex(b)}`;
+    }
+    function buildPalette(container, input) {
+      container.innerHTML = '';
+      for (let h = 0; h < 360; h += 30) {
+        for (let l = 40; l <= 70; l += 10) {
+          const color = hslToHex(h, 80, l);
+          const d = document.createElement('div');
+          d.className = 'swatch';
+          d.style.background = color;
+          d.setAttribute('data-color', color);
+          container.appendChild(d);
+        }
+      }
+      const grays = ['#000000','#222222','#555555','#888888','#bbbbbb','#ffffff'];
+      grays.forEach(color => {
+        const d = document.createElement('div');
+        d.className = 'swatch';
+        d.style.background = color;
+        d.setAttribute('data-color', color);
+        container.appendChild(d);
+      });
+      container.addEventListener('click', (e) => {
+        const t = e.target.closest('.swatch');
+        if (!t) return;
+        const color = t.getAttribute('data-color');
+        input.value = color;
+      });
+    }
+    buildPalette(fontPalette, fontColorInput);
+    buildPalette(outlinePalette, outlineColorInput);
+
+    function pickTechBackground() {
+      const options = [
+        'radial-gradient(circle at 20% 30%, rgba(0,255,255,.15), transparent 40%), radial-gradient(circle at 80% 70%, rgba(255,0,255,.12), transparent 45%), linear-gradient(135deg, #0a0f1f, #152a4a 50%, #0a0f1f), repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 20px), repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 1px, transparent 1px 20px)',
+        'radial-gradient(circle at 10% 80%, rgba(0,200,255,.18), transparent 40%), radial-gradient(circle at 90% 10%, rgba(0,255,150,.12), transparent 45%), linear-gradient(135deg, #0b1020, #1b2b45 50%, #0b1020), repeating-linear-gradient(0deg, rgba(0,255,200,.06) 0 1px, transparent 1px 24px), repeating-linear-gradient(90deg, rgba(0,255,200,.04) 0 1px, transparent 1px 24px)',
+        'radial-gradient(circle at 30% 60%, rgba(255,120,0,.15), transparent 40%), radial-gradient(circle at 70% 30%, rgba(0,160,255,.12), transparent 45%), linear-gradient(135deg, #0a0f1f, #14223d 50%, #0a0f1f), repeating-linear-gradient(0deg, rgba(255,255,255,.03) 0 1px, transparent 1px 18px), repeating-linear-gradient(90deg, rgba(255,255,255,.02) 0 1px, transparent 1px 18px)'
+      ];
+      const picked = options[Math.floor(Math.random() * options.length)];
+      banner.style.backgroundImage = picked;
+    }
+    pickTechBackground();
+
+    function hsvToRgb(h, s, v) {
+      const c = v * s;
+      const x = c * (1 - Math.abs((h / 60) % 2 - 1));
+      const m = v - c;
+      let r = 0, g = 0, b = 0;
+      if (0 <= h && h < 60) { r = c; g = x; b = 0; }
+      else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
+      else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
+      else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
+      else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
+      else { r = c; g = 0; b = x; }
+      r = Math.round((r + m) * 255);
+      g = Math.round((g + m) * 255);
+      b = Math.round((b + m) * 255);
+      return { r, g, b };
+    }
+    function rgbToHex(r, g, b) {
+      return `#${hex(r)}${hex(g)}${hex(b)}`;
+    }
+    function hexToRgb(hexStr) {
+      const s = hexStr.replace('#','');
+      if (s.length !== 6) return null;
+      const r = parseInt(s.slice(0,2), 16);
+      const g = parseInt(s.slice(2,4), 16);
+      const b = parseInt(s.slice(4,6), 16);
+      return { r, g, b };
+    }
+    function rgbToHsv(r, g, b) {
+      r /= 255; g /= 255; b /= 255;
+      const max = Math.max(r,g,b), min = Math.min(r,g,b);
+      const d = max - min;
+      let h = 0;
+      if (d === 0) h = 0;
+      else if (max === r) h = 60 * (((g - b) / d) % 6);
+      else if (max === g) h = 60 * (((b - r) / d) + 2);
+      else h = 60 * (((r - g) / d) + 4);
+      if (h < 0) h += 360;
+      const s = max === 0 ? 0 : d / max;
+      const v = max;
+      return { h, s, v };
+    }
+    function drawHueCanvas(canvas) {
+      const g = canvas.getContext('2d');
+      const grad = g.createLinearGradient(0, 0, 0, canvas.height);
+      grad.addColorStop(0/6, '#ff0000');
+      grad.addColorStop(1/6, '#ffff00');
+      grad.addColorStop(2/6, '#00ff00');
+      grad.addColorStop(3/6, '#00ffff');
+      grad.addColorStop(4/6, '#0000ff');
+      grad.addColorStop(5/6, '#ff00ff');
+      grad.addColorStop(1, '#ff0000');
+      g.fillStyle = grad;
+      g.fillRect(0,0,canvas.width,canvas.height);
+    }
+    function drawSVCanvas(canvas, h) {
+      const g = canvas.getContext('2d');
+      g.clearRect(0,0,canvas.width,canvas.height);
+      const { r, g: gg, b } = hsvToRgb(h, 1, 1);
+      const base = rgbToHex(r, gg, b);
+      const gradX = g.createLinearGradient(0, 0, canvas.width, 0);
+      gradX.addColorStop(0, '#ffffff');
+      gradX.addColorStop(1, base);
+      g.fillStyle = gradX;
+      g.fillRect(0,0,canvas.width,canvas.height);
+      const gradY = g.createLinearGradient(0, 0, 0, canvas.height);
+      gradY.addColorStop(0, 'rgba(0,0,0,0)');
+      gradY.addColorStop(1, 'rgba(0,0,0,1)');
+      g.fillStyle = gradY;
+      g.fillRect(0,0,canvas.width,canvas.height);
+    }
+    function setupPicker(svCanvas, hueCanvas, hexInput, preview, colorInput) {
+      const st = { h: 0, s: 0, v: 1 };
+      drawHueCanvas(hueCanvas);
+      drawSVCanvas(svCanvas, st.h);
+      function updateFromHSV() {
+        const { r, g, b } = hsvToRgb(st.h, st.s, st.v);
+        const hexStr = rgbToHex(r, g, b);
+        hexInput.value = hexStr;
+        preview.style.background = hexStr;
+        colorInput.value = hexStr;
+      }
+      function setFromHex(hexStr) {
+        const rgb = hexToRgb(hexStr);
+        if (!rgb) return;
+        const hsv = rgbToHsv(rgb.r, rgb.g, rgb.b);
+        st.h = hsv.h; st.s = hsv.s; st.v = hsv.v;
+        drawSVCanvas(svCanvas, st.h);
+        updateFromHSV();
+      }
+      setFromHex(hexInput.value);
+      hueCanvas.addEventListener('mousedown', startHueDrag);
+      svCanvas.addEventListener('mousedown', startSVDrag);
+      hexInput.addEventListener('input', () => setFromHex(hexInput.value.trim()));
+      function startHueDrag(e) {
+        const onMove = (ev) => {
+          const rect = hueCanvas.getBoundingClientRect();
+          const y = Math.max(0, Math.min(rect.height, ev.clientY - rect.top));
+          st.h = Math.max(0, Math.min(360, 360 * (y / rect.height)));
+          drawSVCanvas(svCanvas, st.h);
+          updateFromHSV();
+        };
+        const onUp = () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        onMove(e);
+      }
+      function startSVDrag(e) {
+        const onMove = (ev) => {
+          const rect = svCanvas.getBoundingClientRect();
+          const x = Math.max(0, Math.min(rect.width, ev.clientX - rect.left));
+          const y = Math.max(0, Math.min(rect.height, ev.clientY - rect.top));
+          st.s = x / rect.width;
+          st.v = 1 - (y / rect.height);
+          updateFromHSV();
+        };
+        const onUp = () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+        onMove(e);
+      }
+      return { setFromHex };
+    }
+    setupPicker(fontSV, fontHue, fontHex, fontPreview, fontColorInput);
+    setupPicker(outlineSV, outlineHue, outlineHex, outlinePreview, outlineColorInput);
+  </script>
+</body>
+</html>
